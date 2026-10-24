@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrashPoint - Data Collector</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #111827;
+    color: #f3f4f6;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .card {
+    background: #1f2937;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
+  label { display: block; margin-top: 12px; font-size: 14px; color: #d1d5db; }
+  select, input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #374151;
+    background: #111827;
+    color: white;
+    margin-top: 4px;
+    box-sizing: border-box;
+  }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #22c55e;
+    color: #052e12;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:disabled {
+    background: #374151;
+    color: #6b7280;
+    cursor: not-allowed;
+  }
+  .progress-wrap {
+    margin-top: 20px;
+    display: none;
+  }
+  .bar-bg {
+    background: #374151;
+    border-radius: 999px;
+    height: 10px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    background: #22c55e;
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s;
+  }
+  .status-text {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📸 TrashPoint Data Collector</h1>
+  <p class="sub">Pilih kelas sampah, tentuin jumlah foto, terus pencet capture.</p>
+
+  <label for="label">Kelas Sampah</label>
+  <select id="label">
+    <option value="plastik">Plastik</option>
+    <option value="kaleng">Kaleng</option>
+    <option value="lainnya">Lainnya</option>
+  </select>
+
+  <label for="jumlah">Jumlah Foto</label>
+  <input type="number" id="jumlah" value="25" min="1" max="200">
+
+  <button id="btnCapture" onclick="startCapture()">Mulai Capture</button>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="bar-bg"><div class="bar-fill" id="barFill"></div></div>
+    <div class="status-text" id="statusText">0 / 0</div>
+  </div>
+</div>
+
+<script>
+let pollInterval = null;
+
+async function startCapture() {
+  const label = document.getElementById('label').value;
+  const jumlah = document.getElementById('jumlah').value;
+  const btn = document.getElementById('btnCapture');
+
+  const res = await fetch('/collect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({label, jumlah})
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.message || 'gagal mulai capture');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = "Lagi capture...";
+  document.getElementById('progressWrap').style.display = 'block';
+
+  pollInterval = setInterval(pollStatus, 500);
+}
+
+async function pollStatus() {
+  const res = await fetch('/status');
+  const s = await res.json();
+
+  const pct = s.total > 0 ? (s.current / s.total) * 100 : 0;
+  document.getElementById('barFill').style.width = pct + '%';
+  document.getElementById('statusText').innerText =
+    `${s.current} / ${s.total} — kelas: ${s.label}`;
+
+  if (!s.running && s.current > 0) {
+    clearInterval(pollInterval);
+    const btn = document.getElementById('btnCapture');
+    btn.disabled = false;
+    btn.innerText = "Mulai Capture";
+    document.getElementById('statusText').innerText += " ✅ selesai";
+  }
+}
+</script>
+</body>
+</html>

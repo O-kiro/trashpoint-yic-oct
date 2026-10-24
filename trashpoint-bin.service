@@ -1,0 +1,18 @@
+[Unit]
+Description=TrashPoint smart bin service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+Environment=TRASHPOINT_DATABASE_URL=https://trashpoint-8dc2e-default-rtdb.firebaseio.com/
+Environment=TRASHPOINT_SERVICE_ACCOUNT=/home/pi/serviceAccountKey.json
+Environment=TRASHPOINT_BIN_ID=bin-001
+ExecStart=/usr/bin/python3 /home/pi/main.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
