@@ -1,6 +1,6 @@
-f# TrashPoint Smart Bin — Raspberry Pi
+f# TrashPoint October 2026
 
-Dokumentasi flow robot (smart bin) dan flow kode di folder `raspi/`.
+Dokumentasi flow trashpoint
 
 ---
 
@@ -14,12 +14,6 @@ Dokumentasi flow robot (smart bin) dan flow kode di folder `raspi/`.
 | Kamera OV5647 (Pi Camera v1) | CSI ribbon | Memotret barang di chamber untuk klasifikasi AI + bukti/log |
 | Servo (pemiring chamber) | GPIO 18 (BCM) | SG90-style, PWM 50Hz — miringkan chamber ke kiri (plastik) / kanan (kaleng) |
 | Buzzer | GPIO 23 (BCM) | Active buzzer — bunyi saat HIGH |
-
-> ⚠️ Catatan kode lama: `sensor.py` masih versi desain dua slot dari PRD
-> (IR aluminium GPIO 27, LED GPIO 22/23 — GPIO 23 bentrok dengan buzzer).
-> Desain final pakai satu chamber + klasifikasi AI, jadi `sensor.py` dan
-> `main.py` perlu diupdate saat model klasifikasinya sudah siap.
-
 ---
 
 ## 2. Flow Robot (Fisik)
@@ -32,38 +26,38 @@ sesuai (kiri = plastik, kanan = kaleng).
    Siswa datang membawa sampah
               │
               ▼
-   ① Tap kartu RFID di r eader
+   Tap kartu RFID di reader
               │
               ▼
-   ② Pi membaca UID kartu → cari siswa di Firebase (field rfidUid)
+   Pi membaca UID kartu → cari siswa di Firebase (field rfidUid)
               │
        ┌──────┴──────┐
        │ tidak ada   │ ketemu
        ▼             ▼
-   Buzzer error  ③ Siswa memasukkan sampah ke chamber
+   Buzzer error   Siswa memasukkan sampah ke chamber
    (kartu tak             │
     dikenal)              ▼
-                 ④ Sensor IR (GPIO 17) mendeteksi ada barang
+                 Sensor IR (GPIO 17) mendeteksi ada barang
                     di dalam chamber
                           │
                           ▼
-                 ⑤ Kamera OV5647 memotret barang
+                 Kamera OV5647 memotret barang
                     → disimpan ke captures/{timestamp}.jpg
                           │
                           ▼
-                 ⑥ Model AI (klasifikasi gambar, TFLite/YOLOv8n-cls)
+                 Model AI (klasifikasi gambar, TFLite/YOLOv8n-cls)
                     menganalisis foto → PLASTIK / KALENG / LAINNYA
                           │
               ┌───────────┼───────────┐
               │ plastik   │ kaleng    │ lainnya/ragu
               ▼           ▼           ▼
-        ⑦ Servo miring  Servo miring  Buzzer error,
+        Servo miring  Servo miring  Buzzer error,
           ke KIRI 🧴     ke KANAN 🥤   barang ditolak
           + buzzer ok    + buzzer ok   (tanpa poin)
               │           │
               └─────┬─────┘
                     ▼
-                 ⑧ Servo kembali ke posisi tengah,
+                  Servo kembali ke posisi tengah,
                     Pi menulis ke Firebase:
                     • /transactions  → catatan setoran baru
                     • /users/{uid}   → totalPoints +10/+15,
@@ -76,12 +70,12 @@ sesuai (kiri = plastik, kanan = kaleng).
       (kalau melewati ambang tier → animasi Bumi rank-up)
 ```
 
-Poin per item: 🧴 botol plastik = **+10 TP**, 🥤 kaleng aluminium = **+15 TP**.
+Poin per item: 🧴 botol plastik = **+75 TP**, 🥤 kaleng = **+200 TP**.
 Tier: 🌱 0 · ⚔️ 200 · 🦸 500 · 👑 1000 TP (dihitung ulang otomatis tiap setoran).
 
 ### Klasifikasi AI — cara kerjanya & cara melatihnya
 
-Model **belum dilatih** — YOLO/model bawaan tidak mengenal kondisi chamber
+Model — YOLO/model bawaan tidak mengenal kondisi chamber
 kita, jadi wajib dilatih dengan foto dari kamera bin sendiri. Karena di
 chamber hanya ada satu barang dengan posisi & kamera tetap, yang dibutuhkan
 adalah *image classification* (bukan object detection ala YOLOv8 penuh, yang
@@ -90,7 +84,7 @@ terlalu berat untuk Pi 3B+ — bisa 5–15 detik/frame).
 Jalur yang disarankan — **Teachable Machine → TensorFlow Lite**:
 
 1. Kumpulkan dataset **pakai kamera Pi langsung di dalam chamber** dengan
-   pencahayaan asli: 150–300 foto per kelas
+   pencahayaan asli: 600 foto per kelas
    (`plastik`, `kaleng`, `kosong/lainnya` — kelas ketiga penting supaya
    barang aneh ditolak, bukan ditebak paksa)
 2. teachablemachine.withgoogle.com → Image Project → Standard →
@@ -107,10 +101,6 @@ export ke TFLite/NCNN — hasil sama, setup lebih teknis.
 
 ## 3. Flow Kode (`main.py`)
 
-> ⚠️ `main.py` saat ini masih mengimplementasikan desain dua slot dari PRD
-> (jenis sampah ditentukan dari slot IR mana yang terpicu, langkah 3 di
-> bawah). Setelah model klasifikasi siap, langkah 3–4 akan diganti menjadi:
-> IR chamber deteksi → foto → klasifikasi AI → servo sortir kiri/kanan.
 
 `main.py` adalah loop utama yang merangkai semua modul:
 
